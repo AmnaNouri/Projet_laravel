@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo List Laravel - Final</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f0f2f5; }
+
+.container {
+    max-width: 600px;
+    margin: 50px auto;
+    background:#fff;
+    border-radius:15px;
+    padding:25px 30px;
+    box-shadow:0 10px 25px rgba(0,0,0,0.1);
+}
+
+h1 {
+    text-align:center;
+    color:#333;
+    margin-bottom:20px;
+    font-size:2rem;
+}
+
+input[type="text"] {
+    width:70%;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #ccc;
+    font-size:16px;
+    transition:0.3s;
+}
+input[type="text"]:focus { border-color:#2196F3; outline:none; }
+
+button {
+    padding:10px 14px;
+    border:none;
+    border-radius:8px;
+    background:#4CAF50;
+    color:white;
+    font-size:14px;
+    cursor:pointer;
+    transition:0.3s;
+    margin-left:5px;
+}
+button:hover { background:#45a049; }
+
+.filters {
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-top:15px;
+}
+.filters button { background:#2196F3; }
+.filters button:hover { background:#1976D2; }
+
+ul {
+    list-style:none;
+    margin-top:20px;
+}
+li {
+    padding:12px;
+    margin-bottom:10px;
+    background:#f9f9f9;
+    border-radius:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+    transition:0.3s all;
+}
+li:hover { transform:scale(1.02); }
+li.completed { text-decoration:line-through; color:gray; background:#e0e0e0; }
+
+.delete-btn {
+    background:#f44336;
+}
+.delete-btn:hover { background:#d32f2f; }
+
+.edit-btn {
+    background:#FFC107;
+    margin-left:5px;
+}
+.edit-btn:hover { background:#FFA000; }
+
+@media(max-width:600px){
+    input[type="text"] { width:60%; font-size:14px; }
+    button { padding:8px 10px; font-size:12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Todo List Laravel</h1>
+
+    <div>
+        <input type="text" id="newTodo" placeholder="Nouvelle tâche">
+        <button onclick="addTodo()">Ajouter</button>
+    </div>
+
+    <div class="filters">
+        <button onclick="setFilter('all')">Toutes</button>
+        <button onclick="setFilter('completed')">Complétées</button>
+        <button onclick="setFilter('pending')">Non complétées</button>
+    </div>
+
+    <ul id="todoList"></ul>
+</div>
+
+<script>
+const API_URL = '/api/todos';
+const TOKEN = '123456'; // middleware token si activé
+let todos = [];
+let filter = 'all';
+
+// === Fetch toutes les tâches ===
+async function fetchTodos() {
+    try {
+        const res = await fetch(API_URL, {
+            headers: { 'api-token': TOKEN }
+        });
+        todos = await res.json();
+        renderTodos();
+    } catch(err) {
+        alert('Erreur: Impossible de récupérer les tâches');
+    }
+}
+
+// === Render avec filtre ===
+function renderTodos() {
+    let filtered = todos;
+    if(filter === 'completed') filtered = todos.filter(t => t.completed);
+    if(filter === 'pending') filtered = todos.filter(t => !t.completed);
+
+    const ul = document.getElementById('todoList');
+    ul.innerHTML = '';
+    filtered.forEach(todo => {
+        const li = document.createElement('li');
+        li.textContent = todo.title;
+        li.className = todo.completed ? 'completed' : '';
+        li.onclick = () => toggleCompleted(todo.id, !todo.completed);
+
+        // Bouton Modifier
+        const editBtn = document.createElement('button');
+        editBtn.textContent = 'Modifier';
+        editBtn.className = 'edit-btn';
+        editBtn.onclick = (e) => {
+            e.stopPropagation();
+            const newTitle = prompt('Modifier le titre:', todo.title);
+            if(newTitle) updateTodo(todo.id, newTitle);
+        };
+
+        // Bouton Supprimer
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Supprimer';
+        delBtn.className = 'delete-btn';
+        delBtn.onclick = (e) => { e.stopPropagation(); deleteTodo(todo.id); };
+
+        li.appendChild(editBtn);
+        li.appendChild(delBtn);
+        ul.appendChild(li);
+    });
+}
+
+// === Ajouter une tâche ===
+async function addTodo() {
+    const title = document.getElementById('newTodo').value.trim();
+    if(!title) return alert('Écris une tâche');
+    await fetch(API_URL, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'api-token': TOKEN
+        },
+        body: JSON.stringify({ title })
+    });
+    document.getElementById('newTodo').value = '';
+    fetchTodos();
+}
+
+// === Modifier titre ===
+async function updateTodo(id, title) {
+    await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 
+            'Content-Type': 'application/json',
+            'api-token': TOKEN
+        },
+        body: JSON.stringify({ title })
+    });
+    fetchTodos();
+}
+
+// === Modifier statut ===
+async function toggleCompleted(id, completed) {
+    await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 
+            'Content-Type': 'application/json',
+            'api-token': TOKEN
+        },
+        body: JSON.stringify({ completed })
+    });
+    fetchTodos();
+}
+
+// === Supprimer tâche ===
+async function deleteTodo(id) {
+    await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE',
+        headers: { 'api-token': TOKEN }
+    });
+    fetchTodos();
+}
+
+// === Filtres ===
+function setFilter(f) {
+    filter = f;
+    renderTodos();
+}
+
+// === Initialisation ===
+fetchTodos();
+</script>
+
+</body>
+</html>
